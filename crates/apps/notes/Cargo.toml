@@ -1,0 +1,29 @@
+[package]
+name = "notes"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+license-file.workspace = true
+
+[dependencies]
+axum.workspace = true
+bytes.workspace = true
+http.workspace = true
+prost.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+futures-util.workspace = true
+reqwest.workspace = true
+testcontainers-modules.workspace = true
+tokio-tungstenite.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
+protoc-bin-vendored.workspace = true
+
+[lints]
+workspace = true

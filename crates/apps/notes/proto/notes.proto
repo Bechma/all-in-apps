@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package notes.v1;
+
+message Note {
+  int64 id = 1;
+  string title = 2;
+  string body = 3;
+  int64 created_at_unix_ms = 4;
+  int64 updated_at_unix_ms = 5;
+  int64 version = 6;
+}
+
+message CreateNoteRequest {
+  string title = 1;
+  string body = 2;
+}
+
+message CreateNoteResponse {
+  Note note = 1;
+}
+
+message GetNoteResponse {
+  Note note = 1;
+}
+
+message ListNotesResponse {
+  repeated Note notes = 1;
+}
+
+message UpdateNoteRequest {
+  optional string title = 1;
+  optional string body = 2;
+}
+
+message UpdateNoteResponse {
+  Note note = 1;
+}
+
+message DeleteNoteResponse {
+  int64 id = 1;
+}
+
+message NoteDelta {
+  int64 id = 1;
+  optional string title = 2;
+  optional string body = 3;
+  int64 updated_at_unix_ms = 4;
+  int64 version = 5;
+}
+
+message NoteDeleted {
+  int64 id = 1;
+}
+
+message NoteEvent {
+  oneof event {
+    Note created = 1;
+    NoteDelta updated = 2;
+    NoteDeleted deleted = 3;
+  }
+}
