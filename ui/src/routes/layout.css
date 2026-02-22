@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+:root {
+    --font-body: 'IBM Plex Sans', 'Trebuchet MS', 'Gill Sans', sans-serif;
+    --font-title: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --surface: oklch(97% 0.01 85);
+    --surface-strong: oklch(74% 0.04 84);
+    --ink: oklch(25% 0.02 250);
+    --ink-soft: oklch(42% 0.03 255);
+    --ink-muted: oklch(55% 0.02 250);
+    --accent: oklch(47% 0.16 28);
+}
+
+html,
+body {
+    min-height: 100%;
+    margin: 0;
+}
+
+body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: radial-gradient(circle at 8% 4%, color-mix(in oklab, #f49a5f, transparent 76%), transparent 54%),
+    radial-gradient(circle at 92% 10%, color-mix(in oklab, #6dbbc1, transparent 76%), transparent 49%),
+    linear-gradient(160deg, oklch(99% 0.01 84), oklch(95% 0.02 72));
+}
