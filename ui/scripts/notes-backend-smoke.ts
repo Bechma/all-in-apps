@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import {expect} from 'bun:test';
 import {createNotesApiClient} from '../src/lib/api/notes';
 
 const baseUrl = process.env.NOTES_API_BASE_URL ?? 'http://127.0.0.1:3000';
@@ -11,33 +11,33 @@ const body = 'created from ui smoke test';
 const updatedBody = 'updated from ui smoke test';
 
 const created = await api.createNote({title, body});
-assert.ok(created.note, 'create response must include a note');
+expect(created.note).toBeTruthy();
 
 const noteId = created.note.id;
-assert.equal(created.note.title, title);
-assert.equal(created.note.body, body);
+expect(created.note.title).toEqual(title);
+expect(created.note.body).toEqual(body);
 
 const fetched = await api.getNote(noteId);
-assert.ok(fetched.note, 'get response must include a note');
-assert.equal(fetched.note.title, title);
+expect(fetched.note).toBeTruthy();
+expect(fetched.note.title).toEqual(title);
 
 const updatedEvent = waitForUpdatedEvent(noteId);
 const updated = await api.updateNote(noteId, {title: updatedTitle, body: updatedBody});
-assert.ok(updated.note, 'update response must include a note');
-assert.equal(updated.note.title, updatedTitle);
-assert.equal(updated.note.body, updatedBody);
+expect(updated.note).toBeTruthy();
+expect(updated.note.title).toEqual(updatedTitle);
+expect(updated.note.body).toEqual(updatedBody);
 
 const delta = await updatedEvent;
-assert.equal(delta.title, updatedTitle);
-assert.equal(delta.body, updatedBody);
+expect(delta.title).toEqual(updatedTitle);
+expect(delta.body).toEqual(updatedBody);
 
 const listed = await api.listNotes();
 const listedNote = listed.notes.find((note) => note.id === noteId);
-assert.ok(listedNote, 'list response should include created note');
-assert.equal(listedNote.title, updatedTitle);
+expect(listedNote).toBeTruthy();
+expect(listedNote.title).toEqual(updatedTitle);
 
 const deleted = await api.deleteNote(noteId);
-assert.equal(deleted.id, noteId);
+expect(deleted.id).toEqual(noteId);
 
 let gotExpectedDeleteFailure = false;
 try {
@@ -45,12 +45,12 @@ try {
 } catch {
     gotExpectedDeleteFailure = true;
 }
-assert.equal(gotExpectedDeleteFailure, true, 'deleted note should no longer be fetchable');
+expect(gotExpectedDeleteFailure).toBe(true);
 
 console.log(`notes backend smoke test passed for ${baseUrl}`);
 
-async function waitForUpdatedEvent(noteId: number): Promise<{
-    id: number;
+async function waitForUpdatedEvent(noteId: bigint): Promise<{
+    id: bigint;
     title?: string;
     body?: string;
 }> {
@@ -62,11 +62,11 @@ async function waitForUpdatedEvent(noteId: number): Promise<{
 
         const unsubscribe = api.subscribeNoteEvents(
             (event) => {
-                if (done || event.event?.kind !== 'updated') {
+                if (done || event.event.case !== 'updated') {
                     return;
                 }
-                if (event.event.delta.id === noteId) {
-                    finish(() => resolve(event.event.delta));
+                if (event.event.value.id === noteId) {
+                    finish(() => resolve(event.event.value));
                 }
             },
             {

@@ -10,20 +10,28 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "proto:generate": "buf generate",
+    "proto:check": "bun run proto:generate && git diff --exit-code -- src/lib/protobuf/gen",
     "test:backend-smoke": "bun run ./scripts/notes-backend-smoke.ts"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^7.0.0",
-    "@sveltejs/kit": "^2.50.2",
+    "@bufbuild/buf": "^1.65.0",
+    "@bufbuild/protoc-gen-es": "^2.11.0",
+    "@sveltejs/adapter-auto": "^7.0.1",
+    "@sveltejs/kit": "^2.53.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.19",
-    "@tailwindcss/vite": "^4.1.18",
-    "svelte": "^5.51.0",
-    "svelte-check": "^4.3.6",
-    "tailwindcss": "^4.1.18",
+    "@tailwindcss/vite": "^4.2.0",
+    "@types/bun": "^1.3.9",
+    "svelte": "^5.53.2",
+    "svelte-check": "^4.4.3",
+    "tailwindcss": "^4.2.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-devtools-json": "^1.0.0"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0"
   }
 }

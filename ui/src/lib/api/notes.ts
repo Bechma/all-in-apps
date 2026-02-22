@@ -1,21 +1,20 @@
 import {
-	type CreateNoteRequest,
-	type CreateNoteResponse,
-	decodeCreateNoteResponse,
-	decodeDeleteNoteResponse,
-	decodeGetNoteResponse,
-	decodeListNotesResponse,
-	decodeNoteEvent,
-	decodeUpdateNoteResponse,
-	type DeleteNoteResponse,
-	encodeCreateNoteRequest,
-	encodeUpdateNoteRequest,
-	type GetNoteResponse,
-	type ListNotesResponse,
-	type NoteEvent,
-	type UpdateNoteRequest,
-	type UpdateNoteResponse
-} from '$lib/protobuf/notes';
+    CreateNoteRequestSchema,
+    type CreateNoteResponse,
+    CreateNoteResponseSchema,
+    type DeleteNoteResponse,
+    DeleteNoteResponseSchema,
+    type GetNoteResponse,
+    GetNoteResponseSchema,
+    type ListNotesResponse,
+    ListNotesResponseSchema,
+    type NoteEvent,
+    NoteEventSchema,
+    UpdateNoteRequestSchema,
+    type UpdateNoteResponse,
+    UpdateNoteResponseSchema
+} from '$lib/protobuf/gen/notes_pb';
+import {create, fromBinary, type MessageInitShape, toBinary} from '@bufbuild/protobuf';
 
 const PROTOBUF_CONTENT_TYPE = 'application/x-protobuf';
 
@@ -34,15 +33,15 @@ interface SubscribeOptions {
 }
 
 export interface NotesApiClient {
-    createNote(request: CreateNoteRequest): Promise<CreateNoteResponse>;
+    createNote(request: MessageInitShape<typeof CreateNoteRequestSchema>): Promise<CreateNoteResponse>;
 
     listNotes(): Promise<ListNotesResponse>;
 
-    getNote(noteId: number): Promise<GetNoteResponse>;
+    getNote(noteId: bigint): Promise<GetNoteResponse>;
 
-    updateNote(noteId: number, request: UpdateNoteRequest): Promise<UpdateNoteResponse>;
+    updateNote(noteId: bigint, request: MessageInitShape<typeof UpdateNoteRequestSchema>): Promise<UpdateNoteResponse>;
 
-    deleteNote(noteId: number): Promise<DeleteNoteResponse>;
+    deleteNote(noteId: bigint): Promise<DeleteNoteResponse>;
 
     subscribeNoteEvents(onEvent: (event: NoteEvent) => void, options?: SubscribeOptions): () => void;
 }
@@ -117,37 +116,37 @@ export function createNotesApiClient(options: NotesApiClientOptions = {}): Notes
             return request({
                 method: 'POST',
                 path: '/api/notes',
-                body: encodeCreateNoteRequest(requestBody),
-                decode: decodeCreateNoteResponse
+                body: toBinary(CreateNoteRequestSchema, create(CreateNoteRequestSchema, requestBody)),
+                decode: (payload) => fromBinary(CreateNoteResponseSchema, payload)
             });
         },
         listNotes() {
             return request({
                 method: 'GET',
                 path: '/api/notes',
-                decode: decodeListNotesResponse
+                decode: (payload) => fromBinary(ListNotesResponseSchema, payload)
             });
         },
         getNote(noteId) {
             return request({
                 method: 'GET',
                 path: `/api/notes/${noteId}`,
-                decode: decodeGetNoteResponse
+                decode: (payload) => fromBinary(GetNoteResponseSchema, payload)
             });
         },
         updateNote(noteId, requestBody) {
             return request({
                 method: 'PATCH',
                 path: `/api/notes/${noteId}`,
-                body: encodeUpdateNoteRequest(requestBody),
-                decode: decodeUpdateNoteResponse
+                body: toBinary(UpdateNoteRequestSchema, create(UpdateNoteRequestSchema, requestBody)),
+                decode: (payload) => fromBinary(UpdateNoteResponseSchema, payload)
             });
         },
         deleteNote(noteId) {
             return request({
                 method: 'DELETE',
                 path: `/api/notes/${noteId}`,
-                decode: decodeDeleteNoteResponse
+                decode: (payload) => fromBinary(DeleteNoteResponseSchema, payload)
             });
         },
         subscribeNoteEvents(onEvent, subscribeOptions) {
@@ -170,7 +169,7 @@ export function createNotesApiClient(options: NotesApiClientOptions = {}): Notes
             socket.onmessage = (event) => {
                 void decodeSocketFrame(event.data)
                     .then((payload) => {
-                        onEvent(decodeNoteEvent(payload));
+                        onEvent(fromBinary(NoteEventSchema, payload));
                     })
                     .catch((error) => {
                         subscribeOptions?.onError?.(error);

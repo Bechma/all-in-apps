@@ -26,11 +26,27 @@ NOTES_BACKEND_URL=http://127.0.0.1:4000 bun run dev
 
 ## Shared protobuf in TypeScript
 
-The notes protobuf schema is mirrored in:
+The notes protobuf schema is generated with `ts-proto` from:
 
-- `src/lib/protobuf/notes.ts`
+- `../crates/apps/notes/proto/notes.proto`
 
-This file contains the message types and binary encode/decode logic used by the UI client.
+Generated output:
+
+- `src/lib/protobuf/gen/notes.ts`
+
+Commands:
+
+```bash
+cd ui
+bun run proto:generate
+```
+
+```bash
+cd ui
+bun run proto:check
+```
+
+`proto:check` regenerates and fails if anything in `src/lib/protobuf/gen` is out of sync.
 
 ## Backend smoke test
 
