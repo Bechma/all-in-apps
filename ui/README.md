@@ -12,7 +12,6 @@ This UI consumes the Rust notes backend protobuf API:
 2. Run the UI:
 
 ```bash
-cd ui
 bun run dev
 ```
 
@@ -37,12 +36,10 @@ Generated output:
 Commands:
 
 ```bash
-cd ui
 bun run proto:generate
 ```
 
 ```bash
-cd ui
 bun run proto:check
 ```
 
@@ -53,8 +50,7 @@ bun run proto:check
 Run the client smoke test against a running backend:
 
 ```bash
-cd ui
-NOTES_API_BASE_URL=http://127.0.0.1:3000 bun run test:backend-smoke
+NOTES_API_BASE_URL=http://127.0.0.1:3000 bun test ./tests/notes-backend-smoke.test.ts
 ```
 
 This validates create/get/update/list/delete plus websocket update events using the same TypeScript client code used by
