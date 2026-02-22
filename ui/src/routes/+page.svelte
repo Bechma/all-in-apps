@@ -1,101 +1,139 @@
 <script lang="ts">
-	import {onMount} from 'svelte';
-	import {createNotesApiClient} from '$lib/api/notes';
-	import type {Note, NoteDelta, NoteEvent} from '$lib/protobuf/gen/notes_pb';
+    import {onMount} from 'svelte';
+    import {useQueryClient} from '@tanstack/svelte-query';
+    import {
+        applyNoteEventToCache,
+        createCreateNoteMutation,
+        createDeleteNoteMutation,
+        createNotesQuery,
+        createUpdateNoteMutation,
+        subscribeNoteEvents
+    } from '$lib/api/notes';
+    import type {NoteDelta, NoteEvent} from '$lib/protobuf/gen/notes_pb';
 
-	const api = createNotesApiClient();
+    const queryClient = useQueryClient();
+    const notesQuery = createNotesQuery();
+    const createNoteMutation = createCreateNoteMutation();
+    const updateNoteMutation = createUpdateNoteMutation();
+    const deleteNoteMutation = createDeleteNoteMutation();
 
-    let notes = $state<Note[]>([]);
     let selectedNoteId = $state<bigint | null>(null);
     let draftTitle = $state('');
     let draftBody = $state('');
     let newTitle = $state('');
     let newBody = $state('');
-    let isLoading = $state(true);
-    let isCreating = $state(false);
-    let isSaving = $state(false);
-    let isDeleting = $state(false);
-    let errorMessage = $state<string | null>(null);
+    let localErrorMessage = $state<string | null>(null);
     let realtimeState = $state<'connecting' | 'connected' | 'disconnected'>('connecting');
 
+    let notes = $derived(notesQuery.data ?? []);
     let selectedNote = $derived(notes.find((note) => note.id === selectedNoteId) ?? null);
     let noteCountLabel = $derived(notes.length === 1 ? '1 note' : `${notes.length} notes`);
+    let isLoading = $derived(notesQuery.isLoading);
+    let isRefreshing = $derived(notesQuery.isFetching);
+    let isCreating = $derived(createNoteMutation.isPending);
+    let isSaving = $derived(updateNoteMutation.isPending);
+    let isDeleting = $derived(deleteNoteMutation.isPending);
     let hasUnsavedChanges = $derived(
-        selectedNote !== null &&
-        (draftTitle !== selectedNote.title || draftBody !== selectedNote.body)
+        selectedNote !== null && (draftTitle !== selectedNote.title || draftBody !== selectedNote.body)
     );
     let canCreate = $derived(newTitle.trim().length > 0 && !isCreating);
-    let canSave = $derived(
-        selectedNote !== null && draftTitle.trim().length > 0 && hasUnsavedChanges && !isSaving
+    let canSave = $derived(selectedNote !== null && draftTitle.trim().length > 0 && hasUnsavedChanges && !isSaving);
+    let errorMessage = $derived(
+        localErrorMessage ??
+        toErrorMessage(notesQuery.error) ??
+        toErrorMessage(createNoteMutation.error) ??
+        toErrorMessage(updateNoteMutation.error) ??
+        toErrorMessage(deleteNoteMutation.error)
     );
+    const AUTO_SAVE_DELAY_MS = 200;
+
+    $effect(() => {
+        if (notes.length === 0) {
+            if (selectedNoteId !== null) {
+                selectNote(null);
+            }
+            return;
+        }
+
+        if (selectedNoteId === null) {
+            selectNote(notes[0].id);
+            return;
+        }
+
+        const selectionStillExists = notes.some((note) => note.id === selectedNoteId);
+        if (!selectionStillExists) {
+            selectNote(notes[0].id);
+        }
+    });
+
+    $effect(() => {
+        if (selectedNote === null || isSaving || !hasUnsavedChanges || draftTitle.trim().length === 0) {
+            return;
+        }
+
+        const timeoutId = setTimeout(() => {
+            void saveSelectedNote();
+        }, AUTO_SAVE_DELAY_MS);
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    });
 
     onMount(() => {
-        void bootstrap();
-        const unsubscribe = api.subscribeNoteEvents(handleRealtimeEvent, {
-            onOpen: () => {
-                realtimeState = 'connected';
-            },
-            onClose: () => {
-                realtimeState = 'disconnected';
-            },
-            onError: (error) => {
-                realtimeState = 'disconnected';
-                if (!isLoading) {
-                    errorMessage = toErrorMessage(error);
+        const unsubscribe = subscribeNoteEvents(
+            handleRealtimeEvent,
+            {},
+            {
+                onOpen: () => {
+                    realtimeState = 'connected';
+                },
+                onClose: () => {
+                    realtimeState = 'disconnected';
+                },
+                onError: (error: unknown) => {
+                    realtimeState = 'disconnected';
+                    if (!isLoading) {
+                        localErrorMessage = toErrorMessage(error) ?? 'Unexpected error';
+                    }
                 }
             }
-        });
+        );
 
         return () => {
             unsubscribe();
         };
     });
 
-    async function bootstrap(): Promise<void> {
+    async function refreshNotes(): Promise<void> {
         try {
-            isLoading = true;
-            errorMessage = null;
-            const response = await api.listNotes();
-            notes = sortNotes(response.notes);
-            if (notes.length > 0) {
-                selectNote(notes[0].id);
-            } else {
-                selectNote(null);
-            }
+            localErrorMessage = null;
+            await notesQuery.refetch();
         } catch (error) {
-            errorMessage = toErrorMessage(error);
-        } finally {
-            isLoading = false;
+            localErrorMessage = toErrorMessage(error) ?? 'Unexpected error';
         }
     }
 
     async function createNote(): Promise<void> {
         const title = newTitle.trim();
         if (!title) {
-            errorMessage = 'Title is required';
+            localErrorMessage = 'Title is required';
             return;
         }
 
         try {
-            isCreating = true;
-            errorMessage = null;
-            const response = await api.createNote({
+            localErrorMessage = null;
+            const note = await createNoteMutation.mutateAsync({
                 title,
                 body: newBody
             });
-
-            if (response.note === undefined) {
-                throw new Error('backend returned an empty create response');
-            }
-
-            upsertNote(response.note);
-            selectNote(response.note.id);
+            selectedNoteId = note.id;
+            draftTitle = note.title;
+            draftBody = note.body;
             newTitle = '';
             newBody = '';
         } catch (error) {
-            errorMessage = toErrorMessage(error);
-        } finally {
-            isCreating = false;
+            localErrorMessage = toErrorMessage(error) ?? 'Unexpected error';
         }
     }
 
@@ -103,10 +141,13 @@
         if (selectedNote === null) {
             return;
         }
+        if (isSaving) {
+            return;
+        }
 
         const title = draftTitle.trim();
         if (!title) {
-            errorMessage = 'Title is required';
+            localErrorMessage = 'Title is required';
             return;
         }
 
@@ -120,20 +161,13 @@
         }
 
         try {
-            isSaving = true;
-            errorMessage = null;
-            const response = await api.updateNote(selectedNote.id, updateRequest);
-            if (response.note === undefined) {
-                throw new Error('backend returned an empty update response');
-            }
-
-            upsertNote(response.note);
-            draftTitle = response.note.title;
-            draftBody = response.note.body;
+            localErrorMessage = null;
+            await updateNoteMutation.mutateAsync({
+                noteId: selectedNote.id,
+                request: updateRequest
+            });
         } catch (error) {
-            errorMessage = toErrorMessage(error);
-        } finally {
-            isSaving = false;
+            localErrorMessage = toErrorMessage(error) ?? 'Unexpected error';
         }
     }
 
@@ -148,75 +182,35 @@
         }
 
         try {
-            isDeleting = true;
-            errorMessage = null;
-            await api.deleteNote(selectedNote.id);
-            removeNote(selectedNote.id);
+            localErrorMessage = null;
+            await deleteNoteMutation.mutateAsync(selectedNote.id);
         } catch (error) {
-            errorMessage = toErrorMessage(error);
-        } finally {
-            isDeleting = false;
+            localErrorMessage = toErrorMessage(error) ?? 'Unexpected error';
         }
     }
 
     function handleRealtimeEvent(event: NoteEvent): void {
-        if (event.event.case === 'created') {
-            upsertNote(event.event.value);
-            return;
-        }
-
         if (event.event.case === 'updated') {
-            const shouldSyncEditor = !hasUnsavedChanges && selectedNoteId === event.event.value.id;
-            const updated = applyDelta(event.event.value);
-            if (updated !== null && shouldSyncEditor) {
-                draftTitle = updated.title;
-                draftBody = updated.body;
+            const delta = event.event.value;
+            if (delta === undefined) {
+                return;
             }
-            return;
+            const shouldSyncEditor = !hasUnsavedChanges && selectedNoteId === delta.id;
+            if (shouldSyncEditor) {
+                applyDraftDelta(delta);
+            }
         }
 
-        if (event.event.case === 'deleted') {
-            removeNote(event.event.value.id);
-        }
+        applyNoteEventToCache(queryClient, event);
     }
 
-    function applyDelta(delta: NoteDelta): Note | null {
-        const existing = notes.find((candidate) => candidate.id === delta.id);
-        if (existing === undefined) {
-            return null;
+    function applyDraftDelta(delta: NoteDelta): void {
+        if (delta.title !== undefined) {
+            draftTitle = delta.title;
         }
-
-        const updated: Note = {
-            ...existing,
-            title: delta.title ?? existing.title,
-            body: delta.body ?? existing.body,
-            updatedAtUnixMs: delta.updatedAtUnixMs,
-            version: delta.version
-        };
-        upsertNote(updated);
-        return updated;
-    }
-
-    function upsertNote(note: Note): void {
-        const index = notes.findIndex((candidate) => candidate.id === note.id);
-        if (index === -1) {
-            notes = sortNotes([...notes, note]);
-            return;
+        if (delta.body !== undefined) {
+            draftBody = delta.body;
         }
-
-        const next = [...notes];
-        next[index] = note;
-        notes = sortNotes(next);
-    }
-
-    function removeNote(noteId: bigint): void {
-        notes = notes.filter((note) => note.id !== noteId);
-        if (selectedNoteId !== noteId) {
-            return;
-        }
-
-        const replacement = notes[0] ?? null;
-        selectNote(replacement?.id ?? null);
     }
 
     function selectNote(noteId: bigint | null): void {
@@ -226,20 +220,11 @@
         draftBody = note?.body ?? '';
     }
 
-    function sortNotes(items: Note[]): Note[] {
-        return [...items].sort((a, b) => {
-            if (a.updatedAtUnixMs !== b.updatedAtUnixMs) {
-                return a.updatedAtUnixMs < b.updatedAtUnixMs ? 1 : -1;
-            }
-            return a.id < b.id ? 1 : -1;
-        });
-    }
-
-    function toErrorMessage(error: unknown): string {
+    function toErrorMessage(error: unknown): string | null {
         if (error instanceof Error && error.message) {
             return error.message;
         }
-        return 'Unexpected error';
+        return error === null || error === undefined ? null : 'Unexpected error';
     }
 
     function formatTimestamp(unixMs: bigint): string {
@@ -301,7 +286,7 @@
 
             <div class="list-header">
                 <h2>Library</h2>
-                <button type="button" class="quiet" onclick={() => void bootstrap()} disabled={isLoading}>
+                <button type="button" class="quiet" onclick={() => void refreshNotes()} disabled={isRefreshing}>
                     Refresh
                 </button>
             </div>
@@ -402,7 +387,7 @@
 
     h1 {
         margin: 0;
-        font-family: var(--font-title);
+        font-family: var(--font-title), serif;
         font-size: clamp(2rem, 4vw, 3rem);
         line-height: 1;
     }
@@ -614,7 +599,7 @@
     h2 {
         margin: 0;
         font-size: 1rem;
-        font-family: var(--font-title);
+        font-family: var(--font-title), serif;
     }
 
     .hint {
