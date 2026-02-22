@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE notes\n            SET title = $1, body = $2, updated_at = $3, version = $4\n            WHERE id = $5\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fbbab0b7d0021fb6ed87b9e45413cfb491f42329de0cd543aeb9cd61d22223a7"
+}

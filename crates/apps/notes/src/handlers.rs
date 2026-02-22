@@ -41,16 +41,17 @@ async fn create_note(
     }
 
     let now = now_unix_millis();
-    let row = sqlx::query_as::<_, NoteRow>(
-        r"
+    let row = sqlx::query_as!(
+        NoteRow,
+        r#"
         INSERT INTO notes (title, body, created_at, updated_at, version)
         VALUES ($1, $2, $3, $3, 1)
         RETURNING id, title, body, created_at, updated_at, version
-        ",
+        "#,
+        title,
+        payload.body,
+        now
     )
-    .bind(title)
-    .bind(payload.body)
-    .bind(now)
     .fetch_one(&state.pool)
     .await?;
 
@@ -68,12 +69,13 @@ async fn create_note(
 async fn list_notes(
     State(state): State<NotesState>,
 ) -> Result<Protobuf<pb::ListNotesResponse>, NotesError> {
-    let rows = sqlx::query_as::<_, NoteRow>(
-        r"
+    let rows = sqlx::query_as!(
+        NoteRow,
+        r#"
         SELECT id, title, body, created_at, updated_at, version
         FROM notes
         ORDER BY id
-        ",
+        "#,
     )
     .fetch_all(&state.pool)
     .await?;
@@ -87,14 +89,15 @@ async fn get_note(
     Path(note_id): Path<i64>,
     State(state): State<NotesState>,
 ) -> Result<Protobuf<pb::GetNoteResponse>, NotesError> {
-    let row = sqlx::query_as::<_, NoteRow>(
-        r"
+    let row = sqlx::query_as!(
+        NoteRow,
+        r#"
         SELECT id, title, body, created_at, updated_at, version
         FROM notes
         WHERE id = $1
-        ",
+        "#,
+        note_id
     )
-    .bind(note_id)
     .fetch_optional(&state.pool)
     .await?;
 
@@ -115,14 +118,15 @@ async fn update_note(
         ));
     }
 
-    let mut row = sqlx::query_as::<_, NoteRow>(
-        r"
+    let mut row = sqlx::query_as!(
+        NoteRow,
+        r#"
         SELECT id, title, body, created_at, updated_at, version
         FROM notes
         WHERE id = $1
-        ",
+        "#,
+        note_id
     )
-    .bind(note_id)
     .fetch_optional(&state.pool)
     .await?
     .ok_or(NotesError::NotFound(note_id))?;
@@ -162,18 +166,18 @@ async fn update_note(
         delta.version = row.version;
         delta.updated_at_unix_ms = row.updated_at;
 
-        sqlx::query(
-            r"
+        sqlx::query!(
+            r#"
             UPDATE notes
             SET title = $1, body = $2, updated_at = $3, version = $4
             WHERE id = $5
-            ",
+            "#,
+            &row.title,
+            &row.body,
+            row.updated_at,
+            row.version,
+            note_id
         )
-        .bind(&row.title)
-        .bind(&row.body)
-        .bind(row.updated_at)
-        .bind(row.version)
-        .bind(note_id)
         .execute(&state.pool)
         .await?;
 
@@ -194,8 +198,7 @@ async fn delete_note(
     Path(note_id): Path<i64>,
     State(state): State<NotesState>,
 ) -> Result<Protobuf<pb::DeleteNoteResponse>, NotesError> {
-    let result = sqlx::query("DELETE FROM notes WHERE id = $1")
-        .bind(note_id)
+    let result = sqlx::query!("DELETE FROM notes WHERE id = $1", note_id)
         .execute(&state.pool)
         .await?;
 

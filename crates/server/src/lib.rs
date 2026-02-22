@@ -33,15 +33,13 @@ pub fn init_tracing() {
 }
 
 async fn healthcheck(Extension(pool): Extension<PgPool>) -> StatusCode {
-    match sqlx::query_scalar::<_, i32>("SELECT 1")
-        .fetch_one(&pool)
-        .await
-    {
+    match sqlx::query_scalar!("SELECT 1").fetch_one(&pool).await {
         Ok(_) => StatusCode::OK,
         Err(_) => StatusCode::SERVICE_UNAVAILABLE,
     }
 }
 
+#[cfg_attr(not(feature = "notes"), allow(unused_variables))]
 async fn api_router(pool: PgPool) -> anyhow::Result<Router> {
     let api_router = Router::new();
 
@@ -50,7 +48,7 @@ async fn api_router(pool: PgPool) -> anyhow::Result<Router> {
         notes::run_migrations(&pool)
             .await
             .context("failed to run notes migrations")?;
-        api_router.nest("/notes", notes::create_handlers(pool))
+        api_router.nest("/notes", notes::create_handlers(pool.clone()))
     };
 
     Ok(api_router)
