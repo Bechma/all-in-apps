@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/apps/notes", "crates/server"]
+members = ["crates/apps/ai-chat", "crates/apps/notes", "crates/server"]
 resolver = "3"
 
 [workspace.package]

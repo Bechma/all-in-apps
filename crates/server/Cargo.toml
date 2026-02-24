@@ -8,6 +8,7 @@ license-file.workspace = true
 [features]
 default = []
 notes = ["dep:notes"]
+ai-chat = ["dep:ai-chat"]
 
 [dependencies]
 anyhow.workspace = true
@@ -19,6 +20,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 notes = { path = "../apps/notes", optional = true }
+ai-chat = { path = "../apps/ai-chat", optional = true }
 
 [lints]
 workspace = true

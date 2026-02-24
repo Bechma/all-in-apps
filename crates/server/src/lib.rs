@@ -39,7 +39,10 @@ async fn healthcheck(Extension(pool): Extension<PgPool>) -> StatusCode {
     }
 }
 
-#[cfg_attr(not(feature = "notes"), allow(unused_variables))]
+#[cfg_attr(
+    not(any(feature = "notes", feature = "ai-chat")),
+    allow(unused_variables)
+)]
 async fn api_router(pool: PgPool) -> anyhow::Result<Router> {
     let api_router = Router::new();
 
@@ -49,6 +52,14 @@ async fn api_router(pool: PgPool) -> anyhow::Result<Router> {
             .await
             .context("failed to run notes migrations")?;
         api_router.nest("/notes", notes::create_handlers(pool.clone()))
+    };
+
+    #[cfg(feature = "ai-chat")]
+    let api_router = {
+        ai_chat::run_migrations(&pool)
+            .await
+            .context("failed to run ai-chat migrations")?;
+        api_router.nest("/ai-chat", ai_chat::create_handlers(pool.clone()))
     };
 
     Ok(api_router)

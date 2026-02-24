@@ -1,0 +1,21 @@
+[package]
+name = "ai-chat"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+license-file.workspace = true
+
+[dependencies]
+axum.workspace = true
+bytes.workspace = true
+http.workspace = true
+prost.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
+protoc-bin-vendored.workspace = true
+
+[lints]
+workspace = true

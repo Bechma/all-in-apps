@@ -12,6 +12,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai-chat"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "http",
+ "prost",
+ "prost-build",
+ "protoc-bin-vendored",
+ "sqlx",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2483,6 +2497,7 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "ai-chat",
  "anyhow",
  "axum",
  "notes",
